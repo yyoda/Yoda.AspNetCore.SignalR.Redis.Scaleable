@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <VersionPrefix>0.0.1</VersionPrefix>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Description>This library is extension that provides multiple Redis server sharding to AspNetCore.SignalR.Redis.</Description>
+    <Authors>yyoda</Authors>
+    <NeutralLanguage>ja-JP</NeutralLanguage>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/yyoda/Yoda.AspNetCore.SignalR.Redis.Sharding</RepositoryUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Redis" Version="1.0.3" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2047
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{409792E1-36A1-4C4D-B82E-D543B73DB400}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{F65C4CCB-7440-4D84-B007-A41412A4D30A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Yoda.AspNetCore.SignalR.Redis.Sharding", "src\Yoda.AspNetCore.SignalR.Redis.Sharding\Yoda.AspNetCore.SignalR.Redis.Sharding.csproj", "{19D6A6D3-A739-4B02-8135-FF3326DAD20F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sample", "sample", "{C2A3074D-ABEA-4EEC-B819-E7DBED58EAC9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SignalR.Client", "sample\SignalR.Client\SignalR.Client.csproj", "{D6B7B044-CD0A-4376-B9EE-36444B1FAF04}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SignalR.Server", "sample\SignalR.Server\SignalR.Server.csproj", "{570B9D24-6BBD-47FF-87FD-747ACB1E6180}"
+EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{2949DDA5-800C-454E-8A06-E749C311175A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{19D6A6D3-A739-4B02-8135-FF3326DAD20F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{19D6A6D3-A739-4B02-8135-FF3326DAD20F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{19D6A6D3-A739-4B02-8135-FF3326DAD20F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{19D6A6D3-A739-4B02-8135-FF3326DAD20F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6B7B044-CD0A-4376-B9EE-36444B1FAF04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6B7B044-CD0A-4376-B9EE-36444B1FAF04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6B7B044-CD0A-4376-B9EE-36444B1FAF04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6B7B044-CD0A-4376-B9EE-36444B1FAF04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{570B9D24-6BBD-47FF-87FD-747ACB1E6180}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{570B9D24-6BBD-47FF-87FD-747ACB1E6180}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{570B9D24-6BBD-47FF-87FD-747ACB1E6180}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{570B9D24-6BBD-47FF-87FD-747ACB1E6180}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2949DDA5-800C-454E-8A06-E749C311175A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2949DDA5-800C-454E-8A06-E749C311175A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2949DDA5-800C-454E-8A06-E749C311175A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2949DDA5-800C-454E-8A06-E749C311175A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{19D6A6D3-A739-4B02-8135-FF3326DAD20F} = {409792E1-36A1-4C4D-B82E-D543B73DB400}
+		{D6B7B044-CD0A-4376-B9EE-36444B1FAF04} = {C2A3074D-ABEA-4EEC-B819-E7DBED58EAC9}
+		{570B9D24-6BBD-47FF-87FD-747ACB1E6180} = {C2A3074D-ABEA-4EEC-B819-E7DBED58EAC9}
+		{2949DDA5-800C-454E-8A06-E749C311175A} = {C2A3074D-ABEA-4EEC-B819-E7DBED58EAC9}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {22E84D4E-9A24-4B7F-8DB8-6D252D5D2C11}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  signalr.server:
+    image: ${DOCKER_REGISTRY}signalrserver
+    build:
+      context: .
+      dockerfile: sample/SignalR.Server/Dockerfile
