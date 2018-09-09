@@ -19,11 +19,13 @@ namespace SignalR.Server
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
             services.AddSignalR()
-                //.AddRedis("localhost:6379");
-                .UseScaleableRedis(options =>
+                .UseShardingRedis(options =>
                 {
-                    options.AddConfiguration("localhost:6379");
-                    options.AddConfiguration("localhost:6380");
+                    foreach (var connectionString in RedisServer.ConnectionStrings)
+                    {
+                        options.AddConfiguration(connectionString);
+                        options.AddConfiguration(connectionString);
+                    }
                 });
         }
 

@@ -7,11 +7,13 @@ namespace SignalR.Server
     {
         public static void Main(string[] args)
         {
-            CreateWebHostBuilder(args).Build().Run();
+            using (RedisServer.Start(7000, 7001))
+            {
+                WebHost.CreateDefaultBuilder(args)
+                    .UseStartup<Startup>()
+                    .Build()
+                    .Run();
+            }
         }
-
-        public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
-            WebHost.CreateDefaultBuilder(args)
-                .UseStartup<Startup>();
     }
 }

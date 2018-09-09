@@ -15,8 +15,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SignalR.Client", "sample\Si
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SignalR.Server", "sample\SignalR.Server\SignalR.Server.csproj", "{570B9D24-6BBD-47FF-87FD-747ACB1E6180}"
 EndProject
-Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{2949DDA5-800C-454E-8A06-E749C311175A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,10 +33,6 @@ Global
 		{570B9D24-6BBD-47FF-87FD-747ACB1E6180}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{570B9D24-6BBD-47FF-87FD-747ACB1E6180}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{570B9D24-6BBD-47FF-87FD-747ACB1E6180}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2949DDA5-800C-454E-8A06-E749C311175A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2949DDA5-800C-454E-8A06-E749C311175A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2949DDA5-800C-454E-8A06-E749C311175A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2949DDA5-800C-454E-8A06-E749C311175A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -47,7 +41,6 @@ Global
 		{19D6A6D3-A739-4B02-8135-FF3326DAD20F} = {409792E1-36A1-4C4D-B82E-D543B73DB400}
 		{D6B7B044-CD0A-4376-B9EE-36444B1FAF04} = {C2A3074D-ABEA-4EEC-B819-E7DBED58EAC9}
 		{570B9D24-6BBD-47FF-87FD-747ACB1E6180} = {C2A3074D-ABEA-4EEC-B819-E7DBED58EAC9}
-		{2949DDA5-800C-454E-8A06-E749C311175A} = {C2A3074D-ABEA-4EEC-B819-E7DBED58EAC9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {22E84D4E-9A24-4B7F-8DB8-6D252D5D2C11}

@@ -14,7 +14,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         /// <param name="redisConnectionString">The connection string used to connect to the Redis server.</param>
         /// <returns>The same instance of the <see cref="ISignalRServerBuilder"/> for chaining.</returns>
         public static ISignalRServerBuilder UseScaleableRedis(this ISignalRServerBuilder signalrBuilder, string redisConnectionString)
-            => UseScaleableRedis(signalrBuilder, o =>
+            => UseShardingRedis(signalrBuilder, o =>
             {
                 o.Configurations.Add(ConfigurationOptions.Parse(redisConnectionString));
             });
@@ -25,7 +25,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         /// <param name="signalrBuilder">The <see cref="ISignalRServerBuilder"/>.</param>
         /// <param name="configure">A callback to configure the Redis options.</param>
         /// <returns>The same instance of the <see cref="ISignalRServerBuilder"/> for chaining.</returns>
-        public static ISignalRServerBuilder UseScaleableRedis(this ISignalRServerBuilder signalrBuilder, Action<ShardingRedisOptions> configure)
+        public static ISignalRServerBuilder UseShardingRedis(this ISignalRServerBuilder signalrBuilder, Action<ShardingRedisOptions> configure)
         {
             signalrBuilder.Services.Configure(configure);
             signalrBuilder.Services.AddSingleton(typeof(HubLifetimeManager<>), typeof(ShardingRedisHubLifetimeManager<>));
