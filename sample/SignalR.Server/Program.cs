@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace SignalR.Server
 {
@@ -7,9 +9,14 @@ namespace SignalR.Server
     {
         public static void Main(string[] args)
         {
-            using (RedisServer.Start(7000, 7001))
+            var configuration = new ConfigurationBuilder()
+                .AddEnvironmentVariables()
+                .Build();
+
+            using (RedisServer.Configure(configuration))
             {
                 WebHost.CreateDefaultBuilder(args)
+                    .UseConfiguration(configuration)
                     .UseStartup<Startup>()
                     .Build()
                     .Run();
