@@ -21,18 +21,21 @@ namespace SignalR.Server
         }
 
         public Task Join(string groupName)
-        {
-            return Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-        }
+            => Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 
         public Task Leave(string groupName)
-        {
-            return Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-        }
+            => Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
 
-        public async Task SendMessage(string group, string user, string message)
-        {
-            await Clients.Group(group).SendAsync("ReceiveMessage", user, message);
-        }
+        public Task SendToAll(string from, string message)
+            => Clients.All.SendAsync("ReceiveFromAll", from, message);
+
+        public Task SendToMe(string from, string message)
+            => Clients.Caller.SendAsync("ReceiveFromMe", from, message);
+
+        public Task SendToGroup(string group, string from, string message)
+            => Clients.Group(group).SendAsync("ReceiveFromGroup", from, message);
+
+        public Task SendToGroupWithoutMe(string group, string from, string message)
+            => Clients.GroupExcept(group, Context.ConnectionId).SendAsync("ReceiveFromGroupWithoutMe", from, message);
     }
 }

@@ -11,7 +11,7 @@ namespace SignalR.Server
     {
         private Process[] _processes = new Process[0];
 
-        private const int DefaultRedisNum = 2;
+        private const int DefaultRedisNum = 3;
         private const int DefaultPort = 7001;
 
         private const string RedisNumEnvKey = "REDIS_NUM";
@@ -24,7 +24,7 @@ namespace SignalR.Server
 
         public ShardingRedisOptions.WrappedConfigurationOptions[] Configurations { get; set; } = new ShardingRedisOptions.WrappedConfigurationOptions[0];
 
-        public static IDisposable Configure(IConfigurationRoot config)
+        public static RedisServer Configure(IConfigurationRoot config)
         {
             Instance = new RedisServer();
 

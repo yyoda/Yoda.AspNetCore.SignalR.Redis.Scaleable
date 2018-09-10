@@ -36,6 +36,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         public static WrappedConfigurationOptions CreateConfiguration(ConfigurationOptions options, bool isDefault = false)
             => new WrappedConfigurationOptions(options, isDefault);
 
+        public bool DefaultServerSeparation { get; set; } = true;
+
         /// <summary>
         /// Gets or sets configuration options exposed by <c>StackExchange.Redis</c>.
         /// </summary>

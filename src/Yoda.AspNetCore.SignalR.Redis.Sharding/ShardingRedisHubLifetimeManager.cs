@@ -21,7 +21,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         private readonly HubConnectionStore _connections = new HubConnectionStore();
         private readonly RedisSubscriptionManager _groups = new RedisSubscriptionManager();
         private readonly RedisSubscriptionManager _users = new RedisSubscriptionManager();
-        private IRedisServer[] _servers = new IRedisServer[0];
+        private IRedisServer[] _shardingServers;
+        private IRedisServer _defaultServer;
 
         private readonly ShardingRedisOptions _options;
         private readonly RedisChannels _channels;
@@ -33,8 +34,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         private int _internalId;
 
         public ShardingRedisHubLifetimeManager(ILogger<RedisHubLifetimeManager<THub>> logger,
-                                                     IOptions<ShardingRedisOptions> options,
-                                                     IHubProtocolResolver hubProtocolResolver)
+                                               IOptions<ShardingRedisOptions> options,
+                                               IHubProtocolResolver hubProtocolResolver)
         {
             _logger = logger;
             _options = options.Value;
@@ -66,24 +67,24 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             var connectionChannel = _channels.Connection(connection.ConnectionId);
             RedisLog.Unsubscribe(_logger, connectionChannel);
 
-            var tasks = _servers
+            var tasks = _shardingServers
                 .Select(server => server.Subscriber.UnsubscribeAsync(connectionChannel))
                 .ToList();
 
             var feature = connection.Features.Get<IRedisFeature>();
             var groupNames = feature.Groups;
 
-            // Copy the groups to an array here because they get removed from this collection
-            // in RemoveFromGroupAsync
-            var groupTasks = groupNames.Where(groupName => groupName != null).Select(group =>
+            if (groupNames != null)
             {
-                // Use RemoveGroupAsyncCore because the connection is local and we don't want to
-                // accidentally go to other servers with our remove request.
-                var task = RemoveGroupAsyncCore(connection, group);
-                return task;
-            }).ToArray();
-
-            tasks.AddRange(groupTasks);
+                // Copy the groups to an array here because they get removed from this collection
+                // in RemoveFromGroupAsync
+                foreach (var group in groupNames.ToArray())
+                {
+                    // Use RemoveGroupAsyncCore because the connection is local and we don't want to
+                    // accidentally go to other servers with our remove request.
+                    tasks.Add(RemoveGroupAsyncCore(connection, group));
+                }
+            }
 
             if (!string.IsNullOrEmpty(connection.UserIdentifier))
             {
@@ -95,18 +96,14 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
         public override Task SendAllAsync(string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
-            var server = _options.ServerResovler.Default(_servers);
             var message = _protocol.WriteInvocation(methodName, args);
-
-            return PublishAsync(server, _channels.All, message);
+            return PublishAsync(_defaultServer, _channels.All, message);
         }
 
         public override Task SendAllExceptAsync(string methodName, object[] args, IReadOnlyList<string> excludedConnectionIds, CancellationToken cancellationToken = default(CancellationToken))
         {
-            var server = _options.ServerResovler.Default(_servers);
             var message = _protocol.WriteInvocation(methodName, args, excludedConnectionIds);
-
-            return PublishAsync(server, _channels.All, message);
+            return PublishAsync(_defaultServer, _channels.All, message);
         }
 
         public override Task SendConnectionAsync(string connectionId, string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
@@ -123,7 +120,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
             var channel = _channels.Connection(connectionId);
             var message = _protocol.WriteInvocation(methodName, args);
-            var server = _options.ServerResovler.Resolve(_servers, channel);
+            var server = _options.ServerResovler.Resolve(_shardingServers, channel);
 
             return PublishAsync(server, channel, message);
         }
@@ -134,7 +131,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
             var channel = _channels.Group(groupName);
             var message = _protocol.WriteInvocation(methodName, args);
-            var server = _options.ServerResovler.Resolve(_servers, channel);
+            var server = _options.ServerResovler.Resolve(_shardingServers, channel);
 
             return PublishAsync(server, channel, message);
         }
@@ -145,7 +142,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
             var channel = _channels.Group(groupName);
             var message = _protocol.WriteInvocation(methodName, args, excludedConnectionIds);
-            var server = _options.ServerResovler.Resolve(_servers, channel);
+            var server = _options.ServerResovler.Resolve(_shardingServers, channel);
 
             await PublishAsync(server, channel, message);
         }
@@ -154,7 +151,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         {
             var channel = _channels.User(userId);
             var message = _protocol.WriteInvocation(methodName, args);
-            var server = _options.ServerResovler.Resolve(_servers, channel);
+            var server = _options.ServerResovler.Resolve(_shardingServers, channel);
 
             return PublishAsync(server, channel, message);
         }
@@ -199,7 +196,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             var tasks = connectionIds.Select(connectionId =>
             {
                 var channel = _channels.Connection(connectionId);
-                var server = _options.ServerResovler.Resolve(_servers, channel);
+                var server = _options.ServerResovler.Resolve(_shardingServers, channel);
 
                 return PublishAsync(server, channel, payload);
             });
@@ -216,7 +213,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                 .Select(groupName =>
                 {
                     var channel = _channels.Group(groupName);
-                    var server = _options.ServerResovler.Resolve(_servers, channel);
+                    var server = _options.ServerResovler.Resolve(_shardingServers, channel);
                     return PublishAsync(server, channel, payload);
                 });
 
@@ -235,7 +232,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                 .Select(userId =>
                 {
                     var channel = _channels.User(userId);
-                    var server = _options.ServerResovler.Resolve(_servers, channel);
+                    var server = _options.ServerResovler.Resolve(_shardingServers, channel);
                     return PublishAsync(server, channel, payload);
                 });
 
@@ -278,7 +275,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             await _groups.RemoveSubscriptionAsync(groupChannel, connection, async channelName =>
             {
                 RedisLog.Unsubscribe(_logger, channelName);
-                var server = _options.ServerResovler.Resolve(_servers, groupName);
+                var server = _options.ServerResovler.Resolve(_shardingServers, groupName);
                 await server.Subscriber.UnsubscribeAsync(channelName);
             });
 
@@ -297,7 +294,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         {
             var id = Interlocked.Increment(ref _internalId);
             var ack = _ackHandler.CreateAck(id);
-            var server = _options.ServerResovler.Resolve(_servers, groupName);
+            var server = _options.ServerResovler.Resolve(_shardingServers, groupName);
             var serverName = server.ServerName;
             // Send Add/Remove Group to other servers and wait for an ack or timeout
             var message = _protocol.WriteGroupCommand(new RedisGroupCommand(id, serverName, action, groupName, connectionId));
@@ -312,14 +309,14 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             return _users.RemoveSubscriptionAsync(userChannel, connection, async channelName =>
             {
                 RedisLog.Unsubscribe(_logger, channelName);
-                var server = _options.ServerResovler.Resolve(_servers, channelName);
+                var server = _options.ServerResovler.Resolve(_shardingServers, channelName);
                 await server.Subscriber.UnsubscribeAsync(channelName);
             });
         }
 
         public void Dispose()
         {
-            foreach (var info in _servers)
+            foreach (var info in _shardingServers)
             {
                 info?.Dispose();
             }
@@ -414,7 +411,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         {
             var channel = _channels.Connection(connection.ConnectionId);
             RedisLog.Subscribing(_logger, channel);
-            var server = _options.ServerResovler.Resolve(_servers, channel);
+            var server = _options.ServerResovler.Resolve(_shardingServers, channel);
 
             return server.Subscriber.SubscribeAsync(channel, async (c, data) =>
             {
@@ -434,7 +431,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
             return _users.AddSubscriptionAsync(userChannel, connection, async (channelName, subscriptions) =>
             {
-                var server = _options.ServerResovler.Resolve(_servers, channelName);
+                var server = _options.ServerResovler.Resolve(_shardingServers, channelName);
                 await server.Subscriber.SubscribeAsync(channelName, async (_, data) =>
                 {
                     try
@@ -459,7 +456,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         private Task SubscribeToGroupAsync(string groupChannel, HubConnectionStore groupConnections)
         {
             RedisLog.Subscribing(_logger, groupChannel);
-            var server = _options.ServerResovler.Resolve(_servers, groupChannel);
+            var server = _options.ServerResovler.Resolve(_shardingServers, groupChannel);
 
             return server.Subscriber.SubscribeAsync(groupChannel, async (_, data) =>
             {
@@ -493,12 +490,12 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
         private async Task EnsureRedisServerConnection()
         {
-            if (_options.HasConfiguration())
+            if (_defaultServer == null || _shardingServers == null)
             {
                 await _connectionLock.WaitAsync();
                 try
                 {
-                    if (_options.HasConfiguration())
+                    if (_defaultServer == null || _shardingServers == null)
                     {
                         var writer = new LoggerTextWriter(_logger);
 
@@ -516,7 +513,15 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                             return server;
                         }).ToArray();
 
-                        _servers = await Task.WhenAll(tasks);
+                        var redisServers = await Task.WhenAll(tasks);
+
+                        _defaultServer = redisServers.First(server => server.IsDefault);
+
+                        var shardingServers = _options.DefaultServerSeparation
+                            ? redisServers.Where(server => !server.IsDefault)
+                            : redisServers;
+
+                        _shardingServers = shardingServers.ToArray();
                     }
                 }
                 finally

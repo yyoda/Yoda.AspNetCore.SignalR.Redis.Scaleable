@@ -55,10 +55,6 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         public IConnectionMultiplexer Connection { get; }
         public ISubscriber Subscriber { get; }
 
-        public void Dispose()
-        {
-            Subscriber?.UnsubscribeAll();
-            Connection?.Dispose();
-        }
+        public void Dispose() => Connection?.Dispose();
     }
 }

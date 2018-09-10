@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace SignalR.Server
 {
@@ -9,6 +10,7 @@ namespace SignalR.Server
         public static void Main(string[] args)
         {
             var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables()
                 .Build();
 
@@ -16,6 +18,12 @@ namespace SignalR.Server
             {
                 WebHost.CreateDefaultBuilder(args)
                     .UseConfiguration(configuration)
+                    .ConfigureLogging((hostingContext, logging) =>
+                    {
+                        logging.AddConfiguration(hostingContext.Configuration.GetSection("Logging"));
+                        logging.AddConsole();
+                        logging.AddDebug();
+                    })
                     .UseStartup<Startup>()
                     .Build()
                     .Run();
