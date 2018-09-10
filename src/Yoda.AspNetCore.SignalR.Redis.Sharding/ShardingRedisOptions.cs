@@ -61,8 +61,11 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         public void Add(WrappedConfigurationOptions wrappedConfiguration)
             => Configurations.Add(wrappedConfiguration);
 
-        public void Add(ConfigurationOptions configuration, bool isDefault)
+        public void Add(ConfigurationOptions configuration, bool isDefault = false)
             => Configurations.Add(new WrappedConfigurationOptions(configuration, isDefault));
+
+        public void Add(string redisConnectionString, bool isDefault = false)
+            => Add(ConfigurationOptions.Parse(redisConnectionString), isDefault);
 
         public bool HasConfiguration() => Configurations.Any();
 

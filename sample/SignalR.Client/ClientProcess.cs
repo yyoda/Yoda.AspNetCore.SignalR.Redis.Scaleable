@@ -43,7 +43,6 @@ namespace SignalR.Client
             connection.On<string, string>("ReceiveFromGroup", (from, msg) => OnReceive($"[RECV-GROUP] from:{from} to:{client}, msg:{msg}"));
             connection.On<string, string>("ReceiveFromGroupWithoutMe", (from, msg) => OnReceive($"[RECV-GROUP-WITHOUT-ME] from:{from} to:{client}, msg:{msg}"));
 
-            var sendMessage = new string('x', _context.MessageSize);
             await connection.StartAsync(CancellationToken.None);
             await connection.InvokeAsync("Join", group, CancellationToken.None);
             _activeClientsTotal = Interlocked.Increment(ref _activeClientsTotal);
@@ -54,6 +53,9 @@ namespace SignalR.Client
             {
                 try
                 {
+                    //var sendMessage = new string('x', _context.MessageSize);
+                    var message = Guid.NewGuid().ToString("N");
+
                     if (_cancellationToken.IsCancellationRequested)
                     {
                         await connection.InvokeAsync("Leave", group, CancellationToken.None);
@@ -65,10 +67,13 @@ namespace SignalR.Client
                         return;
                     }
 
-                    _context.WriteToDebugLog($"[SEND] group:{group}, client:{client}, msg:{sendMessage}");
+                    _context.WriteToDebugLog($"[SEND] group:{group}, client:{client}, msg:{message}");
 
-                    await connection.InvokeAsync("SendToGroup", group, client, sendMessage, CancellationToken.None);
-                    //await connection.InvokeAsync("SendToAll", client, sendMessage, CancellationToken.None);
+                    //await connection.InvokeAsync("SendToAll", client, message, CancellationToken.None);
+                    //await connection.InvokeAsync("SendToMe", client, message, CancellationToken.None);
+                    await connection.InvokeAsync("SendToGroup", group, client, message, CancellationToken.None);
+                    //await connection.InvokeAsync("SendToGroupWithoutMe", group, client, message, CancellationToken.None);
+
                     _sentMessagesTotal = Interlocked.Increment(ref _sentMessagesTotal);
 
                     Measure(swForSend, ms
