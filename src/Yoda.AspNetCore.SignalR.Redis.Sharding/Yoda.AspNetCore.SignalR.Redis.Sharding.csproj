@@ -6,9 +6,11 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <Title>Yoda.AspNetCore.SignalR.Redis.Sharding</Title>
     <Description>This library is extension that provides multiple Redis server sharding to AspNetCore.SignalR.Redis.</Description>
     <Authors>yyoda</Authors>
     <NeutralLanguage>ja-JP</NeutralLanguage>
+    <PackageTags>SignalR</PackageTags>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/yyoda/Yoda.AspNetCore.SignalR.Redis.Sharding</RepositoryUrl>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
