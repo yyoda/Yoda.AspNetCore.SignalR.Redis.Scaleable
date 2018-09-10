@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -18,5 +19,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                 return server[Math.Abs(hashInteger) % serverCount];
             }
         }
+
+        public IRedisServer Default(IRedisServer[] servers)
+            => servers.First(server => server.IsDefault);
     }
 }

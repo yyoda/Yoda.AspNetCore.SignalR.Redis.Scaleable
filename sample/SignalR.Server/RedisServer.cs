@@ -3,12 +3,13 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Yoda.AspNetCore.SignalR.Redis.Sharding;
 
 namespace SignalR.Server
 {
     internal class RedisServer : IDisposable
     {
-        private IDisposable[] _processes = new IDisposable[0];
+        private Process[] _processes = new Process[0];
 
         private const int DefaultRedisNum = 2;
         private const int DefaultPort = 7001;
@@ -20,7 +21,8 @@ namespace SignalR.Server
         private RedisServer() { }
 
         public static RedisServer Instance { get; private set; } = new RedisServer();
-        public string[] ConnectionStrings { get; set; } = new string[0];
+
+        public ShardingRedisOptions.WrappedConfigurationOptions[] Configurations { get; set; } = new ShardingRedisOptions.WrappedConfigurationOptions[0];
 
         public static IDisposable Configure(IConfigurationRoot config)
         {
@@ -28,22 +30,27 @@ namespace SignalR.Server
 
             var serverCount = config.GetValue(RedisNumEnvKey, DefaultRedisNum);
 
-            var connectionStrings = Enumerable.Range(1, serverCount)
+            var configurations = Enumerable.Range(1, serverCount)
                 .Select(index => config.GetValue($"{RedisConnectionStringEnvKey}{index}", string.Empty))
                 .Where(connectionString => !string.IsNullOrWhiteSpace(connectionString))
+                .Select((connectionString, index) => ShardingRedisOptions.CreateConfiguration(connectionString, index == 0))
                 .ToArray();
 
-            if (connectionStrings.Any())
+            if (configurations.Any())
             {
-                Instance.ConnectionStrings = connectionStrings;
+                Instance.Configurations = configurations;
             }
             else
             {
                 Process.GetProcessesByName(ProcessName).ToList().ForEach(redisServer => redisServer.Kill());
 
-                var sequence = Enumerable.Range(DefaultPort, serverCount);
+                var sequence = Enumerable.Range(DefaultPort, serverCount).ToArray();
 
-                Instance.ConnectionStrings = sequence.Select(port => $"localhost:{port}").ToArray();
+                Instance.Configurations = sequence.Select((port, index) =>
+                {
+                    return ShardingRedisOptions.CreateConfiguration($"localhost:{port}", index == 0);
+                }).ToArray();
+
                 Instance._processes = sequence.Select(port =>
                 {
                     var packagePath = $@"{Environment.GetEnvironmentVariable("userprofile")}\.nuget\packages\redis-64";

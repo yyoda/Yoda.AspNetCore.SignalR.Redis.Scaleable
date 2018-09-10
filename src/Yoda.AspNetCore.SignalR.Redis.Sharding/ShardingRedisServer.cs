@@ -6,9 +6,11 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 {
     public class ShardingRedisServer : IRedisServer
     {
-        public ShardingRedisServer(string serverName, IConnectionMultiplexer serverConnection, ILogger logger)
+        public ShardingRedisServer(string serverName, bool isDefault, IConnectionMultiplexer serverConnection, ILogger logger)
         {
             ServerName = serverName;
+
+            IsDefault = isDefault;
 
             Connection = serverConnection;
 
@@ -49,6 +51,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         }
 
         public string ServerName { get; }
+        public bool IsDefault { get; }
         public IConnectionMultiplexer Connection { get; }
         public ISubscriber Subscriber { get; }
 

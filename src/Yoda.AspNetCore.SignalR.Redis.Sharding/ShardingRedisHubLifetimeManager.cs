@@ -51,16 +51,10 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             var feature = new RedisFeature();
             connection.Features.Set<IRedisFeature>(feature);
 
-            var userTask = Task.CompletedTask;
-
             _connections.Add(connection);
 
             var connectionTask = SubscribeToConnection(connection);
-
-            if (!string.IsNullOrEmpty(connection.UserIdentifier))
-            {
-                userTask = SubscribeToUser(connection);
-            }
+            var userTask = SubscribeToUser(connection);
 
             await Task.WhenAll(connectionTask, userTask);
         }
@@ -73,23 +67,23 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             RedisLog.Unsubscribe(_logger, connectionChannel);
 
             var tasks = _servers
-                .Select(serverConnection => serverConnection.Subscriber.UnsubscribeAsync(connectionChannel))
+                .Select(server => server.Subscriber.UnsubscribeAsync(connectionChannel))
                 .ToList();
 
             var feature = connection.Features.Get<IRedisFeature>();
             var groupNames = feature.Groups;
 
-            if (groupNames != null)
+            // Copy the groups to an array here because they get removed from this collection
+            // in RemoveFromGroupAsync
+            var groupTasks = groupNames.Where(groupName => groupName != null).Select(group =>
             {
-                // Copy the groups to an array here because they get removed from this collection
-                // in RemoveFromGroupAsync
-                foreach (var group in groupNames.ToArray())
-                {
-                    // Use RemoveGroupAsyncCore because the connection is local and we don't want to
-                    // accidentally go to other servers with our remove request.
-                    tasks.Add(RemoveGroupAsyncCore(connection, group));
-                }
-            }
+                // Use RemoveGroupAsyncCore because the connection is local and we don't want to
+                // accidentally go to other servers with our remove request.
+                var task = RemoveGroupAsyncCore(connection, group);
+                return task;
+            }).ToArray();
+
+            tasks.AddRange(groupTasks);
 
             if (!string.IsNullOrEmpty(connection.UserIdentifier))
             {
@@ -101,22 +95,23 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
         public override Task SendAllAsync(string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
+            var server = _options.ServerResovler.Default(_servers);
             var message = _protocol.WriteInvocation(methodName, args);
-            return PublishAsync(_channels.All, message);
+
+            return PublishAsync(server, _channels.All, message);
         }
 
         public override Task SendAllExceptAsync(string methodName, object[] args, IReadOnlyList<string> excludedConnectionIds, CancellationToken cancellationToken = default(CancellationToken))
         {
+            var server = _options.ServerResovler.Default(_servers);
             var message = _protocol.WriteInvocation(methodName, args, excludedConnectionIds);
-            return PublishAsync(_channels.All, message);
+
+            return PublishAsync(server, _channels.All, message);
         }
 
         public override Task SendConnectionAsync(string connectionId, string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (connectionId == null)
-            {
-                throw new ArgumentNullException(nameof(connectionId));
-            }
+            if (connectionId == null) throw new ArgumentNullException(nameof(connectionId));
 
             // If the connection is local we can skip sending the message through the bus since we require sticky connections.
             // This also saves serializing and deserializing the message!
@@ -126,49 +121,48 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                 return connection.WriteAsync(new InvocationMessage(methodName, args)).AsTask();
             }
 
+            var channel = _channels.Connection(connectionId);
             var message = _protocol.WriteInvocation(methodName, args);
-            return PublishAsync(_channels.Connection(connectionId), message);
+            var server = _options.ServerResovler.Resolve(_servers, channel);
+
+            return PublishAsync(server, channel, message);
         }
 
         public override Task SendGroupAsync(string groupName, string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (groupName == null)
-            {
-                throw new ArgumentNullException(nameof(groupName));
-            }
+            if (groupName == null) throw new ArgumentNullException(nameof(groupName));
 
+            var channel = _channels.Group(groupName);
             var message = _protocol.WriteInvocation(methodName, args);
-            return PublishAsync(_channels.Group(groupName), message);
+            var server = _options.ServerResovler.Resolve(_servers, channel);
+
+            return PublishAsync(server, channel, message);
         }
 
         public override async Task SendGroupExceptAsync(string groupName, string methodName, object[] args, IReadOnlyList<string> excludedConnectionIds, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (groupName == null)
-            {
-                throw new ArgumentNullException(nameof(groupName));
-            }
+            if (groupName == null) throw new ArgumentNullException(nameof(groupName));
 
+            var channel = _channels.Group(groupName);
             var message = _protocol.WriteInvocation(methodName, args, excludedConnectionIds);
-            await PublishAsync(_channels.Group(groupName), message);
+            var server = _options.ServerResovler.Resolve(_servers, channel);
+
+            await PublishAsync(server, channel, message);
         }
 
         public override Task SendUserAsync(string userId, string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
+            var channel = _channels.User(userId);
             var message = _protocol.WriteInvocation(methodName, args);
-            return PublishAsync(_channels.User(userId), message);
+            var server = _options.ServerResovler.Resolve(_servers, channel);
+
+            return PublishAsync(server, channel, message);
         }
 
         public override async Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (connectionId == null)
-            {
-                throw new ArgumentNullException(nameof(connectionId));
-            }
-
-            if (groupName == null)
-            {
-                throw new ArgumentNullException(nameof(groupName));
-            }
+            if (connectionId == null) throw new ArgumentNullException(nameof(connectionId));
+            if (groupName == null) throw new ArgumentNullException(nameof(groupName));
 
             var connection = _connections[connectionId];
             if (connection != null)
@@ -183,15 +177,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
         public override async Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (connectionId == null)
-            {
-                throw new ArgumentNullException(nameof(connectionId));
-            }
-
-            if (groupName == null)
-            {
-                throw new ArgumentNullException(nameof(groupName));
-            }
+            if (connectionId == null) throw new ArgumentNullException(nameof(connectionId));
+            if (groupName == null) throw new ArgumentNullException(nameof(groupName));
 
             var connection = _connections[connectionId];
             if (connection != null)
@@ -206,68 +193,60 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
         public override Task SendConnectionsAsync(IReadOnlyList<string> connectionIds, string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (connectionIds == null)
-            {
-                throw new ArgumentNullException(nameof(connectionIds));
-            }
+            if (connectionIds == null) throw new ArgumentNullException(nameof(connectionIds));
 
-            var publishTasks = new List<Task>(connectionIds.Count);
             var payload = _protocol.WriteInvocation(methodName, args);
-
-            foreach (var connectionId in connectionIds)
+            var tasks = connectionIds.Select(connectionId =>
             {
-                publishTasks.Add(PublishAsync(_channels.Connection(connectionId), payload));
-            }
+                var channel = _channels.Connection(connectionId);
+                var server = _options.ServerResovler.Resolve(_servers, channel);
 
-            return Task.WhenAll(publishTasks);
+                return PublishAsync(server, channel, payload);
+            });
+
+            return Task.WhenAll(tasks);
         }
 
         public override Task SendGroupsAsync(IReadOnlyList<string> groupNames, string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (groupNames == null)
-            {
-                throw new ArgumentNullException(nameof(groupNames));
-            }
-            var publishTasks = new List<Task>(groupNames.Count);
+            if (groupNames == null) throw new ArgumentNullException(nameof(groupNames));
+
             var payload = _protocol.WriteInvocation(methodName, args);
-
-            foreach (var groupName in groupNames)
-            {
-                if (!string.IsNullOrEmpty(groupName))
+            var tasks = groupNames.Where(groupName => !string.IsNullOrEmpty(groupName))
+                .Select(groupName =>
                 {
-                    publishTasks.Add(PublishAsync(_channels.Group(groupName), payload));
-                }
-            }
+                    var channel = _channels.Group(groupName);
+                    var server = _options.ServerResovler.Resolve(_servers, channel);
+                    return PublishAsync(server, channel, payload);
+                });
 
-            return Task.WhenAll(publishTasks);
+            return Task.WhenAll(tasks);
         }
 
         public override Task SendUsersAsync(IReadOnlyList<string> userIds, string methodName, object[] args, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (userIds.Count > 0)
+            if (userIds.Count <= 0)
             {
-                var payload = _protocol.WriteInvocation(methodName, args);
-                var publishTasks = new List<Task>(userIds.Count);
-                foreach (var userId in userIds)
-                {
-                    if (!string.IsNullOrEmpty(userId))
-                    {
-                        publishTasks.Add(PublishAsync(_channels.User(userId), payload));
-                    }
-                }
-
-                return Task.WhenAll(publishTasks);
+                return Task.CompletedTask;
             }
 
-            return Task.CompletedTask;
+            var payload = _protocol.WriteInvocation(methodName, args);
+            var tasks = userIds.Where(userId => !string.IsNullOrEmpty(userId))
+                .Select(userId =>
+                {
+                    var channel = _channels.User(userId);
+                    var server = _options.ServerResovler.Resolve(_servers, channel);
+                    return PublishAsync(server, channel, payload);
+                });
+
+            return Task.WhenAll(tasks);
         }
 
-        private async Task PublishAsync(string channel, byte[] payload)
+        private async Task PublishAsync(IRedisServer server, string channel, byte[] payload)
         {
             await EnsureRedisServerConnection();
             RedisLog.PublishToChannel(_logger, channel);
-            var serverConnection = _options.Resovler.Resolve(_servers, channel);
-            await serverConnection.Subscriber.PublishAsync(channel, payload);
+            await server.Subscriber.PublishAsync(channel, payload);
         }
 
         private async Task AddGroupAsyncCore(HubConnectionContext connection, string groupName)
@@ -284,8 +263,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                 }
             }
 
-            var groupChannel = _channels.Group(groupName);
-            await _groups.AddSubscriptionAsync(groupChannel, connection, SubscribeToGroupAsync);
+            var channel = _channels.Group(groupName);
+            await _groups.AddSubscriptionAsync(channel, connection, SubscribeToGroupAsync);
         }
 
         /// <summary>
@@ -299,10 +278,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             await _groups.RemoveSubscriptionAsync(groupChannel, connection, async channelName =>
             {
                 RedisLog.Unsubscribe(_logger, channelName);
-
-                var serverConnection = _options.Resovler.Resolve(_servers, groupName);
-
-                await serverConnection.Subscriber.UnsubscribeAsync(channelName);
+                var server = _options.ServerResovler.Resolve(_servers, groupName);
+                await server.Subscriber.UnsubscribeAsync(channelName);
             });
 
             var feature = connection.Features.Get<IRedisFeature>();
@@ -320,14 +297,11 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         {
             var id = Interlocked.Increment(ref _internalId);
             var ack = _ackHandler.CreateAck(id);
-
-            var serverConnection = _options.Resovler.Resolve(_servers, groupName);
-            var serverName = serverConnection.ServerName;
-
+            var server = _options.ServerResovler.Resolve(_servers, groupName);
+            var serverName = server.ServerName;
             // Send Add/Remove Group to other servers and wait for an ack or timeout
             var message = _protocol.WriteGroupCommand(new RedisGroupCommand(id, serverName, action, groupName, connectionId));
-            await PublishAsync(_channels.GroupManagement, message);
-
+            await PublishAsync(server, _channels.GroupManagement, message);
             await ack;
         }
 
@@ -338,8 +312,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             return _users.RemoveSubscriptionAsync(userChannel, connection, async channelName =>
             {
                 RedisLog.Unsubscribe(_logger, channelName);
-                var serverConnection = _options.Resovler.Resolve(_servers, channelName);
-                await serverConnection.Subscriber.UnsubscribeAsync(channelName);
+                var server = _options.ServerResovler.Resolve(_servers, channelName);
+                await server.Subscriber.UnsubscribeAsync(channelName);
             });
         }
 
@@ -349,30 +323,35 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
             {
                 info?.Dispose();
             }
+
             _ackHandler.Dispose();
         }
 
         private void SubscribeToAll(IRedisServer server)
         {
-            RedisLog.Subscribing(_logger, _channels.All);
+            if (!server.IsDefault)
+            {
+                return;
+            }
 
-            server.Subscriber.Subscribe(_channels.All, async (c, data) =>
+            RedisLog.Subscribing(_logger, _channels.All);
+            server.Subscriber.Subscribe(_channels.All, async (_, data) =>
             {
                 try
                 {
                     RedisLog.ReceivedFromChannel(_logger, _channels.All);
-
                     var invocation = _protocol.ReadInvocation((byte[])data);
-
-                    var tasks = new List<Task>(_connections.Count);
-
-                    foreach (var connection in _connections)
-                    {
-                        if (invocation.ExcludedConnectionIds == null || !invocation.ExcludedConnectionIds.Contains(connection.ConnectionId))
+                    var tasks = _connections.AsEnumerable()
+                        .Where(connectionContext =>
                         {
-                            tasks.Add(connection.WriteAsync(invocation.Message).AsTask());
-                        }
-                    }
+                            if (invocation.ExcludedConnectionIds == null)
+                            {
+                                return true;
+                            }
+
+                            return !invocation.ExcludedConnectionIds.Contains(connectionContext.ConnectionId);
+                        })
+                        .Select(connectionContext => connectionContext.WriteAsync(invocation.Message).AsTask());
 
                     await Task.WhenAll(tasks);
                 }
@@ -384,8 +363,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         }
 
         private void SubscribeToGroupManagementChannel(IRedisServer server)
-        {
-            server.Subscriber.Subscribe(_channels.GroupManagement, async (c, data) =>
+            => server.Subscriber.Subscribe(_channels.GroupManagement, async (c, data) =>
             {
                 try
                 {
@@ -409,33 +387,36 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                     }
 
                     // Send an ack to the server that sent the original command.
-                    await PublishAsync(_channels.Ack(groupMessage.ServerName), _protocol.WriteAck(groupMessage.Id));
+                    await PublishAsync(server, _channels.Ack(groupMessage.ServerName), _protocol.WriteAck(groupMessage.Id));
                 }
                 catch (Exception ex)
                 {
                     RedisLog.InternalMessageFailed(_logger, ex);
                 }
             });
-        }
 
+        /// <summary>
+        /// Create server specific channel in order to send an ack to a single server
+        /// </summary>
+        /// <param name="server"></param>
         private void SubscribeToAckChannel(IRedisServer server)
         {
-            // Create server specific channel in order to send an ack to a single server
-            server.Subscriber.Subscribe(_channels.Ack(server.ServerName), (c, data) =>
-            {
-                var ackId = _protocol.ReadAck((byte[])data);
+            var ackChannel = _channels.Ack(server.ServerName);
 
+            server.Subscriber.Subscribe(ackChannel, (_, data) =>
+            {
+                var ackId = _protocol.ReadAck((byte[]) data);
                 _ackHandler.TriggerAck(ackId);
             });
         }
 
         private Task SubscribeToConnection(HubConnectionContext connection)
         {
-            var connectionChannel = _channels.Connection(connection.ConnectionId);
+            var channel = _channels.Connection(connection.ConnectionId);
+            RedisLog.Subscribing(_logger, channel);
+            var server = _options.ServerResovler.Resolve(_servers, channel);
 
-            RedisLog.Subscribing(_logger, connectionChannel);
-            var serverConnection = _options.Resovler.Resolve(_servers, connectionChannel);
-            return serverConnection.Subscriber.SubscribeAsync(connectionChannel, async (c, data) =>
+            return server.Subscriber.SubscribeAsync(channel, async (c, data) =>
             {
                 var invocation = _protocol.ReadInvocation((byte[])data);
                 await connection.WriteAsync(invocation.Message);
@@ -444,22 +425,26 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
         private Task SubscribeToUser(HubConnectionContext connection)
         {
+            if (string.IsNullOrEmpty(connection.UserIdentifier))
+            {
+                return Task.CompletedTask;
+            }
+
             var userChannel = _channels.User(connection.UserIdentifier);
 
             return _users.AddSubscriptionAsync(userChannel, connection, async (channelName, subscriptions) =>
             {
-                var serverConnection = _options.Resovler.Resolve(_servers, channelName);
-                await serverConnection.Subscriber.SubscribeAsync(channelName, async (c, data) =>
+                var server = _options.ServerResovler.Resolve(_servers, channelName);
+                await server.Subscriber.SubscribeAsync(channelName, async (_, data) =>
                 {
                     try
                     {
                         var invocation = _protocol.ReadInvocation((byte[])data);
-
-                        var tasks = new List<Task>();
-                        foreach (var userConnection in subscriptions)
+                        var tasks = subscriptions.AsEnumerable().Select(connectionContext =>
                         {
-                            tasks.Add(userConnection.WriteAsync(invocation.Message).AsTask());
-                        }
+                            var task = connectionContext.WriteAsync(invocation.Message);
+                            return task.AsTask();
+                        });
 
                         await Task.WhenAll(tasks);
                     }
@@ -474,23 +459,28 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         private Task SubscribeToGroupAsync(string groupChannel, HubConnectionStore groupConnections)
         {
             RedisLog.Subscribing(_logger, groupChannel);
-            var serverConnection = _options.Resovler.Resolve(_servers, groupChannel);
-            return serverConnection.Subscriber.SubscribeAsync(groupChannel, async (c, data) =>
+            var server = _options.ServerResovler.Resolve(_servers, groupChannel);
+
+            return server.Subscriber.SubscribeAsync(groupChannel, async (_, data) =>
             {
                 try
                 {
                     var invocation = _protocol.ReadInvocation((byte[])data);
-
-                    var tasks = new List<Task>();
-                    foreach (var groupConnection in groupConnections)
-                    {
-                        if (invocation.ExcludedConnectionIds?.Contains(groupConnection.ConnectionId) == true)
+                    var tasks = groupConnections.AsEnumerable()
+                        .Where(connection =>
                         {
-                            continue;
-                        }
+                            if (invocation.ExcludedConnectionIds == null)
+                            {
+                                return true;
+                            }
 
-                        tasks.Add(groupConnection.WriteAsync(invocation.Message).AsTask());
-                    }
+                            return !invocation.ExcludedConnectionIds.Contains(connection.ConnectionId);
+                        })
+                        .Select(connection =>
+                        {
+                            var task = connection.WriteAsync(invocation.Message);
+                            return task.AsTask();
+                        });
 
                     await Task.WhenAll(tasks);
                 }
@@ -515,17 +505,15 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                         var tasks = _options.Configurations.Select(async configuration =>
                         {
                             var serverName = _options.ServerNameGenerator.GenerateServerName();
+                            RedisLog.ConnectingToEndpoints(_logger, configuration.Options.EndPoints, serverName);
+                            var redisConnection = await _options.ConnectAsync(configuration.Options, writer);
+                            var server = new ShardingRedisServer(serverName, configuration.IsDefault, redisConnection, _logger);
 
-                            RedisLog.ConnectingToEndpoints(_logger, configuration.EndPoints, serverName);
+                            SubscribeToAll(server);
+                            SubscribeToGroupManagementChannel(server);
+                            SubscribeToAckChannel(server);
 
-                            var connectionMultiplexer = await _options.ConnectAsync(configuration, writer);
-                            var serverConnection = new ShardingRedisServer(serverName, connectionMultiplexer, _logger);
-
-                            SubscribeToAll(serverConnection);
-                            SubscribeToGroupManagementChannel(serverConnection);
-                            SubscribeToAckChannel(serverConnection);
-
-                            return serverConnection;
+                            return server;
                         }).ToArray();
 
                         _servers = await Task.WhenAll(tasks);
@@ -542,22 +530,11 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         {
             private readonly ILogger _logger;
 
-            public LoggerTextWriter(ILogger logger)
-            {
-                _logger = logger;
-            }
+            public LoggerTextWriter(ILogger logger) => _logger = logger;
 
             public override Encoding Encoding => Encoding.UTF8;
-
-            public override void Write(char value)
-            {
-
-            }
-
-            public override void WriteLine(string value)
-            {
-                RedisLog.ConnectionMultiplexerMessage(_logger, value);
-            }
+            public override void Write(char value) { }
+            public override void WriteLine(string value) => RedisLog.ConnectionMultiplexerMessage(_logger, value);
         }
 
         private interface IRedisFeature

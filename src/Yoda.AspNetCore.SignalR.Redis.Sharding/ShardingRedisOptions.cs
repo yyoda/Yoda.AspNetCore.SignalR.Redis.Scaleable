@@ -13,10 +13,33 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
     /// </summary>
     public class ShardingRedisOptions
     {
+        public class WrappedConfigurationOptions
+        {
+            internal WrappedConfigurationOptions(string redisConnectionString, bool isDefault)
+                : this(ConfigurationOptions.Parse(redisConnectionString), isDefault)
+            {
+            }
+
+            internal WrappedConfigurationOptions(ConfigurationOptions options, bool isDefault)
+            {
+                Options = options;
+                IsDefault = isDefault;
+            }
+
+            public ConfigurationOptions Options { get; }
+            public bool IsDefault { get; }
+        }
+
+        public static WrappedConfigurationOptions CreateConfiguration(string redisConnectionString, bool isDefault = false)
+            => new WrappedConfigurationOptions(redisConnectionString, isDefault);
+
+        public static WrappedConfigurationOptions CreateConfiguration(ConfigurationOptions options, bool isDefault = false)
+            => new WrappedConfigurationOptions(options, isDefault);
+
         /// <summary>
         /// Gets or sets configuration options exposed by <c>StackExchange.Redis</c>.
         /// </summary>
-        public List<ConfigurationOptions> Configurations { get; set; } = new List<ConfigurationOptions>();
+        public List<WrappedConfigurationOptions> Configurations { get; set; } = new List<WrappedConfigurationOptions>();
 
         /// <summary>
         /// Gets or sets the Redis connection factory.
@@ -26,16 +49,18 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         /// <summary>
         /// Gets or sets the Redis connection resolver.
         /// </summary>
-        public IRedisServerResolver Resovler { get; set; } = new DefaultRedisServerResolver();
+        public IRedisServerResolver ServerResovler { get; set; } = new DefaultRedisServerResolver();
 
         /// <summary>
         /// Gets or sets the Redis server name generator.
         /// </summary>
         public IRedisServerNameGenerator ServerNameGenerator { get; set; } = new DefaultRedisServerNameGenerator();
 
-        public void AddConfiguration(string redisConnectionString) => Configurations.Add(ConfigurationOptions.Parse(redisConnectionString));
+        public void Add(WrappedConfigurationOptions wrappedConfiguration)
+            => Configurations.Add(wrappedConfiguration);
 
-        public void AddConfiguration(ConfigurationOptions configuration) => Configurations.Add(configuration);
+        public void Add(ConfigurationOptions configuration, bool isDefault)
+            => Configurations.Add(new WrappedConfigurationOptions(configuration, isDefault));
 
         public bool HasConfiguration() => Configurations.Any();
 

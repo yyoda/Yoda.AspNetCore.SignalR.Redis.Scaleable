@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,7 +19,26 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding.Internal
 
         public AckHandler()
         {
-            _timer = new Timer(_ => CheckAcks(), state: null, dueTime: _ackInterval, period: _ackInterval);
+            // Don't capture the current ExecutionContext and its AsyncLocals onto the timer
+            bool restoreFlow = false;
+            try
+            {
+                if (!ExecutionContext.IsFlowSuppressed())
+                {
+                    ExecutionContext.SuppressFlow();
+                    restoreFlow = true;
+                }
+
+                _timer = new Timer(state => ((AckHandler)state).CheckAcks(), state: this, dueTime: _ackInterval, period: _ackInterval);
+            }
+            finally
+            {
+                // Restore the current ExecutionContext
+                if (restoreFlow)
+                {
+                    ExecutionContext.RestoreFlow();
+                }
+            }
         }
 
         public Task CreateAck(int id)

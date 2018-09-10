@@ -21,9 +21,9 @@ namespace SignalR.Server
             services.AddSignalR()
                 .UseShardingRedis(options =>
                 {
-                    foreach (var connectionString in RedisServer.Instance.ConnectionStrings)
+                    foreach (var configuration in RedisServer.Instance.Configurations)
                     {
-                        options.AddConfiguration(connectionString);
+                        options.Add(configuration);
                     }
                 });
         }
