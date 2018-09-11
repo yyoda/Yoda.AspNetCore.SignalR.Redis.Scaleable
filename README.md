@@ -5,6 +5,12 @@ It works as below.
 
 ![diagram.png](diagram.png)
 
+This library has partition algorithm that It decide server below.
+
+```
+server_index = MD5(channel_name) mod server_count
+```
+
 # Configuration
 
 The configuration that operates as shown above is as follows.
