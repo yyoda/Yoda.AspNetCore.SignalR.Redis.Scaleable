@@ -1,7 +1,7 @@
 # Yoda.AspNetCore.SignalR.Redis.Sharding
 This library is extension that provides multiple Redis server sharding to AspNetCore.SignalR.Redis.
 
-It works as bellow.
+It works as below.
 
 ![diagram.png](diagram.png)
 
@@ -26,7 +26,7 @@ public class Startup
 }
 ```
 
-R1 is for all-channel, R2 to R4 are for group-channel or user-channel.
-The parameter of the second argument means that it is a dedicated server for all- channel of PubSub.
-If this parameter is not set at all, one server is randomly decided. And this server works with all-channel, group-channel, user-channel.
-It works as a dedicated server for all-channel only when 'true' is set.
+* R1 is for all-channel, R2 to R4 are for group-channel or user-channel.
+* The parameter of the second argument means that it is a dedicated server for all-channel of PubSub.
+* If this parameter is not set at all, one server is randomly decided. And this server works with all-channel, group-channel, user-channel.
+* It works as a dedicated server for all-channel only when 'true' is set.
