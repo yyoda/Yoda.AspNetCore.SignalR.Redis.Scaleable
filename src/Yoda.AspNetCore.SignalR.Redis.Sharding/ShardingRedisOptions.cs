@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using StackExchange.Redis;
@@ -15,28 +14,26 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
     {
         public class WrappedConfigurationOptions
         {
-            internal WrappedConfigurationOptions(string redisConnectionString, bool isDefault)
-                : this(ConfigurationOptions.Parse(redisConnectionString), isDefault)
+            internal WrappedConfigurationOptions(string redisConnectionString, bool isDedicatedForAllChannel)
+                : this(ConfigurationOptions.Parse(redisConnectionString), isDedicatedForAllChannel)
             {
             }
 
-            internal WrappedConfigurationOptions(ConfigurationOptions options, bool isDefault)
+            internal WrappedConfigurationOptions(ConfigurationOptions options, bool isDedicatedForAllChannel)
             {
                 Options = options;
-                IsDefault = isDefault;
+                IsDedicatedForAllChannel = isDedicatedForAllChannel;
             }
 
             public ConfigurationOptions Options { get; }
-            public bool IsDefault { get; }
+            public bool IsDedicatedForAllChannel { get; }
         }
 
-        public static WrappedConfigurationOptions CreateConfiguration(string redisConnectionString, bool isDefault = false)
-            => new WrappedConfigurationOptions(redisConnectionString, isDefault);
+        public static WrappedConfigurationOptions CreateConfiguration(string redisConnectionString, bool isDedicatedForAllChannel = false)
+            => new WrappedConfigurationOptions(redisConnectionString, isDedicatedForAllChannel);
 
-        public static WrappedConfigurationOptions CreateConfiguration(ConfigurationOptions options, bool isDefault = false)
-            => new WrappedConfigurationOptions(options, isDefault);
-
-        public bool DefaultServerSeparation { get; set; } = true;
+        public static WrappedConfigurationOptions CreateConfiguration(ConfigurationOptions options, bool isDedicatedForAllChannel = false)
+            => new WrappedConfigurationOptions(options, isDedicatedForAllChannel);
 
         /// <summary>
         /// Gets or sets configuration options exposed by <c>StackExchange.Redis</c>.
@@ -61,13 +58,11 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         public void Add(WrappedConfigurationOptions wrappedConfiguration)
             => Configurations.Add(wrappedConfiguration);
 
-        public void Add(ConfigurationOptions configuration, bool isDefault = false)
-            => Configurations.Add(new WrappedConfigurationOptions(configuration, isDefault));
+        public void Add(ConfigurationOptions configuration, bool isDedicatedForAllChannel = false)
+            => Configurations.Add(new WrappedConfigurationOptions(configuration, isDedicatedForAllChannel));
 
-        public void Add(string redisConnectionString, bool isDefault = false)
-            => Add(ConfigurationOptions.Parse(redisConnectionString), isDefault);
-
-        public bool HasConfiguration() => Configurations.Any();
+        public void Add(string redisConnectionString, bool isDedicatedForAllChannel = false)
+            => Add(ConfigurationOptions.Parse(redisConnectionString), isDedicatedForAllChannel);
 
         internal async Task<IConnectionMultiplexer> ConnectAsync(ConfigurationOptions configuration, TextWriter log)
         {

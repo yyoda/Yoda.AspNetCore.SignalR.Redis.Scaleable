@@ -12,12 +12,12 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         /// </summary>
         /// <param name="signalrBuilder">The <see cref="ISignalRServerBuilder"/>.</param>
         /// <param name="redisConnectionString">The connection string used to connect to the Redis server.</param>
-        /// <param name="isDefault"></param>
+        /// <param name="isDedicatedForAllChannel"></param>
         /// <returns>The same instance of the <see cref="ISignalRServerBuilder"/> for chaining.</returns>
-        public static ISignalRServerBuilder UseScaleableRedis(this ISignalRServerBuilder signalrBuilder, string redisConnectionString, bool isDefault)
+        public static ISignalRServerBuilder UseScaleableRedis(this ISignalRServerBuilder signalrBuilder, string redisConnectionString, bool isDedicatedForAllChannel)
             => UseShardingRedis(signalrBuilder, o =>
             {
-                o.Add(ConfigurationOptions.Parse(redisConnectionString), isDefault);
+                o.Add(ConfigurationOptions.Parse(redisConnectionString), isDedicatedForAllChannel);
             });
 
         /// <summary>

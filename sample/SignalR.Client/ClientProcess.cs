@@ -69,10 +69,10 @@ namespace SignalR.Client
 
                     _context.WriteToDebugLog($"[SEND] group:{group}, client:{client}, msg:{message}");
 
-                    //await connection.InvokeAsync("SendToAll", client, message, CancellationToken.None);
-                    //await connection.InvokeAsync("SendToMe", client, message, CancellationToken.None);
-                    await connection.InvokeAsync("SendToGroup", group, client, message, CancellationToken.None);
-                    //await connection.InvokeAsync("SendToGroupWithoutMe", group, client, message, CancellationToken.None);
+                    //await connection.InvokeAsync("SendToAll", client, $"ALL-{message}", CancellationToken.None);
+                    //await connection.InvokeAsync("SendToMe", client, $"ME-{message}", CancellationToken.None);
+                    await connection.InvokeAsync("SendToGroup", group, client, $"GRP-{message}", CancellationToken.None);
+                    //await connection.InvokeAsync("SendToGroupWithoutMe", group, client, $"GRPW-{message}", CancellationToken.None);
 
                     _sentMessagesTotal = Interlocked.Increment(ref _sentMessagesTotal);
 

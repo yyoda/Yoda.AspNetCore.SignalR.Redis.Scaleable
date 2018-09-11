@@ -23,7 +23,7 @@ namespace SignalR.Server
                 {
                     foreach (var configuration in RedisServer.Instance.Configurations)
                     {
-                        options.Add(configuration.Options, configuration.IsDefault);
+                        options.Add(configuration.Options, configuration.IsDedicatedForAllChannel);
                     }
                 });
         }

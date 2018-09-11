@@ -326,7 +326,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
         private void SubscribeToAll(IRedisServer server)
         {
-            if (!server.IsDefault)
+            if (!server.IsDedicatedForAllChannel)
             {
                 return;
             }
@@ -360,7 +360,7 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
         }
 
         private void SubscribeToGroupManagementChannel(IRedisServer server)
-            => server.Subscriber.Subscribe(_channels.GroupManagement, async (c, data) =>
+            => server.Subscriber.Subscribe(_channels.GroupManagement, async (_, data) =>
             {
                 try
                 {
@@ -504,9 +504,8 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
                             var serverName = _options.ServerNameGenerator.GenerateServerName();
                             RedisLog.ConnectingToEndpoints(_logger, configuration.Options.EndPoints, serverName);
                             var redisConnection = await _options.ConnectAsync(configuration.Options, writer);
-                            var server = new ShardingRedisServer(serverName, configuration.IsDefault, redisConnection, _logger);
+                            var server = new ShardingRedisServer(serverName, configuration.IsDedicatedForAllChannel, redisConnection, _logger);
 
-                            SubscribeToAll(server);
                             SubscribeToGroupManagementChannel(server);
                             SubscribeToAckChannel(server);
 
@@ -515,11 +514,12 @@ namespace Yoda.AspNetCore.SignalR.Redis.Sharding
 
                         var redisServers = await Task.WhenAll(tasks);
 
-                        _defaultServer = redisServers.First(server => server.IsDefault);
+                        _defaultServer = redisServers.FirstOrDefault(server => server.IsDedicatedForAllChannel)
+                                         ?? redisServers.First();
 
-                        var shardingServers = _options.DefaultServerSeparation
-                            ? redisServers.Where(server => !server.IsDefault)
-                            : redisServers;
+                        SubscribeToAll(_defaultServer);
+
+                        var shardingServers = redisServers.Where(server => !server.IsDedicatedForAllChannel);
 
                         _shardingServers = shardingServers.ToArray();
                     }
